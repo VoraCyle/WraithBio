@@ -1,0 +1,126 @@
+import React, { useState } from 'react';
+import OpenAI from 'openai';
+
+// --- STYLING (Tactical HUD Theme) ---
+const styles = {
+  container: { backgroundColor: '#050505', color: '#00FF41', minHeight: '100vh', padding: '40px', fontFamily: '"Courier New", Courier, monospace' },
+  header: { borderBottom: '2px solid #00FF41', paddingBottom: '10px', marginBottom: '30px', letterSpacing: '3px' },
+  inputArea: { marginBottom: '30px', display: 'flex', gap: '10px' },
+  input: { flex: 1, padding: '15px', background: '#111', border: '1px solid #00FF41', color: '#00FF41', outline: 'none' },
+  button: { background: '#00FF41', color: '#000', border: 'none', padding: '0 25px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' },
+  grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' },
+  column: { border: '1px solid #222', padding: '20px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)' },
+  fieldHeader: { color: '#888', textTransform: 'uppercase', marginBottom: '15px', borderBottom: '1px solid #333' },
+  blackHeader: { color: '#FF3E3E', textTransform: 'uppercase', marginBottom: '15px', borderBottom: '1px solid #FF3E3E' },
+  summaryBox: { marginTop: '30px', border: '1px solid #00AAFF', padding: '20px', background: 'rgba(0, 170, 255, 0.05)' },
+  badge: { display: 'inline-block', padding: '2px 8px', borderRadius: '3px', fontSize: '0.7rem', marginLeft: '10px', fontWeight: 'bold' }
+};
+
+// --- INITIALIZE OPENAI ---
+// Replace with your actual key or use process.env.REACT_APP_OPENAI_KEY
+const openai = new OpenAI({
+  apiKey: "YOUR_OPENAI_API_KEY_HERE", 
+  dangerouslyAllowBrowser: true 
+});
+
+function App() {
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+
+  const analyzeStack = async () => {
+    if (!input) return;
+    setLoading(true);
+    
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are the Wraith Co. Intelligence Engine. 
+            Analyze the user's supplements and categorize them.
+            Field Grade: Standard supplements, OTC vitamins, minerals.
+            Black Tier: Peptides, SARMs, prescription-only, or research chemicals.
+            
+            Return ONLY a JSON object with:
+            {
+              "field_grade": [{"name": string, "effect": string}],
+              "black_tier": [{"name": string, "effect": string}],
+              "synergy_report": string,
+              "optimization_tip": string,
+              "risk_level": "Low" | "Medium" | "High" | "Critical",
+              "tier_rating": "Recruit" | "Operator" | "Wraith"
+            }`
+          },
+          { role: "user", content: `Analyze this stack: ${input}` }
+        ],
+        response_format: { type: "json_object" }
+      });
+
+      setData(JSON.parse(response.choices[0].message.content));
+    } catch (error) {
+      console.error("Transmission Interrupted:", error);
+      alert("Analysis failed. Check your API key.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <h1>WRAITH CO // STACK ANALYZER <span style={{fontSize: '0.8rem', color: '#555'}}>v2.0_AI</span></h1>
+      </header>
+
+      <div style={styles.inputArea}>
+        <input 
+          style={styles.input}
+          placeholder="ENTER COMPONENTS (e.g. Vitamin D3, BPC-157, Alpha-GPC, NAC)..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+        />
+        <button style={styles.button} onClick={analyzeStack} disabled={loading}>
+          {loading ? "ANALYZING..." : "DEPLOY SCAN"}
+        </button>
+      </div>
+
+      {data && (
+        <>
+          <div style={styles.grid}>
+            {/* Column 1: Field Grade */}
+            <div style={styles.column}>
+              <h3 style={styles.fieldHeader}>[ Field Grade ]</h3>
+              {data.field_grade.map((item, i) => (
+                <p key={i}><strong>{item.name}:</strong> <span style={{color: '#aaa'}}>{item.effect}</span></p>
+              ))}
+            </div>
+
+            {/* Column 2: Black Tier */}
+            <div style={{...styles.column, borderColor: '#FF3E3E'}}>
+              <h3 style={styles.blackHeader}>[ Black Tier ]</h3>
+              {data.black_tier.map((item, i) => (
+                <p key={i}><strong>{item.name}:</strong> <span style={{color: '#ff8888'}}>{item.effect}</span></p>
+              ))}
+            </div>
+          </div>
+
+          {/* Analysis Summary Section */}
+          <div style={styles.summaryBox}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <h3 style={{color: '#00AAFF', margin: 0}}>MISSION READINESS REPORT</h3>
+              <div>
+                <span style={{...styles.badge, backgroundColor: '#333'}}>TIER: {data.tier_rating}</span>
+                <span style={{...styles.badge, backgroundColor: data.risk_level === 'Critical' ? '#FF3E3E' : '#333'}}>RISK: {data.risk_level}</span>
+              </div>
+            </div>
+            <p style={{lineHeight: '1.6', color: '#eee'}}><strong>Synergy Analysis:</strong> {data.synergy_report}</p>
+            <p style={{color: '#00FF41'}}><strong>Wraith Optimization:</strong> {data.optimization_tip}</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default App; 
